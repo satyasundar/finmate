@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
-//import "./ChatBox.css";
+import ReactMarkDown from "react-markdown";
+import "./ChatBox.css";
 
 export default function ChatBox() {
   const [input, setInput] = useState("");
@@ -18,6 +19,7 @@ export default function ChatBox() {
   const handleSend = async () => {
     if (!input.trim()) return;
 
+    
     const DEBUG_MODE = true;
     const userMsg = {role: "user", content: input };
     setMessages((prev) => [...prev, userMsg]);
@@ -61,11 +63,39 @@ export default function ChatBox() {
         <div className="chat-box" ref={chatRef}>
             {
                 messages.map(
-                    (msg, i) => (
-                        <div key={i} className={`message ${msg.role}`}>
-                            {msg.content}
-                        </div>
-                    )
+                    (msg, i) => {
+                        if (msg.role === "ai" && msg.content.includes("<think>")) {
+                            return (
+                                <React.Fragment key={i}>
+                                    {msg.content
+                                        .split(/(<think>.*?<\/think>)/gs)
+                                        .filter(Boolean)
+                                        .map((section, j) => {
+                                            if (section.startsWith("<think>")) {
+                                                const thinkContent = section.replace(/<\/?think>/g, "");
+                                                return (
+                                                    <div key={`${i}-${j}`} className="message think">
+                                                        <em>{thinkContent}</em>
+                                                    </div>
+                                                );
+                                            } else {
+                                                return (
+                                                    <div key={`${i}-${j}`} className="message ai">
+                                                        <ReactMarkDown>{section}</ReactMarkDown>
+                                                    </div>
+                                                );
+                                            }
+                                        })}
+                                </React.Fragment>
+                            )
+                        } else {
+                            return (
+                                <div key={i} className={`message ${msg.role}`}>
+                                    <ReactMarkDown>{msg.content}</ReactMarkDown>
+                                </div>
+                            )
+                        }
+                    }
                 )
             }
             {loading && <div className="message ai">...</div>}
@@ -90,8 +120,14 @@ export default function ChatBox() {
 function createTagFilteringStreamHandler({ 
     onData, 
     tagsToFilter = ["think"], 
-    enabled = true 
+    enabled = true
   }) {
+
+    if (!enabled) {
+        return (chunk) => {
+            onData(chunk)
+        }
+    }
     let buffer = "";
     let skipping = false;
     let currentTag = "";
@@ -139,12 +175,16 @@ function createTagFilteringStreamHandler({
           }
         }
       }
-  
-      if (output && enabled) {
+
+      if (output) {
         onData(output);
-      } else if (!enabled) {
-        onData(chunk); // raw unfiltered chunk if dev mode
       }
+  
+    //   if (output && enabled) {
+    //     onData(output);
+    //   } else if (!enabled) {
+    //     onData(chunk); // raw unfiltered chunk if dev mode
+    //   }
     };
   }
   
