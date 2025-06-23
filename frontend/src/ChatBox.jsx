@@ -2,11 +2,32 @@ import React, { useState, useRef, useEffect } from "react";
 import ReactMarkDown from "react-markdown";
 import "./ChatBox.css";
 
-export default function ChatBox() {
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState([]);
-  //const [response, setResponse] = useState("");
-  const [loading, setLoading] = useState(false)
+const Collapsible = ({ title, children }) => {
+    const [isOpen, setIsOpen] = useState(true);
+
+    const toggleOpen = () => {
+        setIsOpen(!isOpen);
+    };
+
+    return (
+        <div className="collapsible">
+            <button onClick={toggleOpen} className="collapsible-toggle">
+                {isOpen ? "[-]" : "[+]"} {title}
+            </button>
+            {isOpen && <div className="collapsible-content">{children}</div>}
+        </div>
+    )
+};
+
+const LoadingDots = () => (
+    <div className="loading-dots">
+        <span />
+        <span />
+        <span />
+    </div>
+);
+
+export default function ChatBox({ messages, loading }) {
   const chatRef = useRef(null)
 
 
@@ -16,175 +37,53 @@ export default function ChatBox() {
 
   useEffect(scrollToBottom, [messages]);
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
-
-    
-    const DEBUG_MODE = true;
-    const userMsg = {role: "user", content: input };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("")
-    //setResponse(""); // Reset response
-    setLoading(true)
-
-    const res = await fetch("http://localhost:8000/ollama", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_message: input }),
-    });
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder("utf-8");
-
-    let aiMsg = { role: "ai", content:"" }
-    setMessages((prev) => [...prev, aiMsg]);
-
-    const filterStream = createTagFilteringStreamHandler({
-        tagsToFilter: ["think"],
-        enabled: !DEBUG_MODE,
-        onData: (filteredChunk) => {
-          aiMsg.content += filteredChunk;
-          setMessages((prev) => [...prev.slice(0, -1), { ...aiMsg }]);
-        },
-      });
-
-    
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      filterStream(chunk)
-    }
-    setLoading(false)
-  };
-
   return (
-    <div className="chat-container">
-        <div className="chat-box" ref={chatRef}>
-            {
-                messages.map(
-                    (msg, i) => {
-                        if (msg.role === "ai" && msg.content.includes("<think>")) {
-                            return (
-                                <React.Fragment key={i}>
-                                    {msg.content
-                                        .split(/(<think>.*?<\/think>)/gs)
-                                        .filter(Boolean)
-                                        .map((section, j) => {
-                                            if (section.startsWith("<think>")) {
-                                                const thinkContent = section.replace(/<\/?think>/g, "");
-                                                return (
-                                                    <div key={`${i}-${j}`} className="message think">
-                                                        <em>{thinkContent}</em>
-                                                    </div>
-                                                );
-                                            } else {
-                                                return (
-                                                    <div key={`${i}-${j}`} className="message ai">
-                                                        <ReactMarkDown>{section}</ReactMarkDown>
-                                                    </div>
-                                                );
-                                            }
-                                        })}
-                                </React.Fragment>
-                            )
-                        } else {
-                            return (
-                                <div key={i} className={`message ${msg.role}`}>
-                                    <ReactMarkDown>{msg.content}</ReactMarkDown>
-                                </div>
-                            )
-                        }
+    <div className="chat-box" ref={chatRef}>
+        {
+            messages.map(
+                (msg, i) => {
+                    if (msg.role === "ai" && msg.content.includes("<think>")) {
+                        return (
+                            <React.Fragment key={i}>
+                                {msg.content
+                                    .split(/(<think>.*?<\/think>)/gs)
+                                    .filter(Boolean)
+                                    .map((section, j) => {
+                                        if (section.startsWith("<think>")) {
+                                            const thinkContent = section.replace(/<\/?think>/g, "");
+                                            return (
+                                                <div key={`${i}-${j}`} className="message think">
+                                                    <Collapsible title="Thinking...">
+                                                      <em>{thinkContent}</em>
+                                                    </Collapsible>
+                                                </div>
+                                            );
+                                        } else {
+                                            return (
+                                                <div key={`${i}-${j}`} className="message ai">
+                                                    <ReactMarkDown>{section}</ReactMarkDown>
+                                                </div>
+                                            );
+                                        }
+                                    })}
+                            </React.Fragment>
+                        )
+                    } else {
+                        return (
+                            <div key={i} className={`message ${msg.role}`}>
+                                <ReactMarkDown>{msg.content}</ReactMarkDown>
+                            </div>
+                        )
                     }
-                )
-            }
-            {loading && <div className="message ai">...</div>}
-        </div>
-        <div className="input-box">
-            <textarea 
-                rows={1}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                placeholder="Send a message"
-            />
-            <button onClick={handleSend} disabled={loading}>
-                Send
-            </button>
-        </div>
+                }
+            )
+        }
+        {loading && messages[messages.length-1]?.showDots && (
+            <div className="message ai">
+                <LoadingDots />
+            </div>
+        )}
     </div>
   );
 
 }
-
-function createTagFilteringStreamHandler({ 
-    onData, 
-    tagsToFilter = ["think"], 
-    enabled = true
-  }) {
-
-    if (!enabled) {
-        return (chunk) => {
-            onData(chunk)
-        }
-    }
-    let buffer = "";
-    let skipping = false;
-    let currentTag = "";
-    
-    const startTags = tagsToFilter.map(tag => `<${tag}>`);
-    const endTags = tagsToFilter.map(tag => `</${tag}>`);
-  
-    return (chunk) => {
-      buffer += chunk;
-      let output = "";
-  
-      while (buffer.length > 0) {
-        if (!skipping) {
-          const nextStart = startTags
-            .map(tag => buffer.indexOf(tag))
-            .filter(i => i !== -1)
-            .sort((a, b) => a - b)[0];
-  
-          if (nextStart === 0) {
-            const matchedTag = startTags.find(tag => buffer.startsWith(tag));
-            currentTag = matchedTag;
-            skipping = true;
-            buffer = buffer.slice(matchedTag.length);
-            continue;
-          }
-  
-          if (nextStart > 0) {
-            output += buffer.slice(0, nextStart);
-            buffer = buffer.slice(nextStart);
-            continue;
-          }
-  
-          output += buffer;
-          buffer = "";
-        } else {
-          const closingTag = `</${currentTag.slice(1)}`; // e.g., </think>
-          const endIdx = buffer.indexOf(closingTag);
-          if (endIdx === -1) {
-            buffer = ""; // Still in hidden block, discard buffer
-            return;
-          } else {
-            buffer = buffer.slice(endIdx + closingTag.length);
-            skipping = false;
-            currentTag = "";
-          }
-        }
-      }
-
-      if (output) {
-        onData(output);
-      }
-  
-    //   if (output && enabled) {
-    //     onData(output);
-    //   } else if (!enabled) {
-    //     onData(chunk); // raw unfiltered chunk if dev mode
-    //   }
-    };
-  }
-  
