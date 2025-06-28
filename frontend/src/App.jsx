@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import ChatBox from "./ChatBox";
 import "./App.css";
 
-const MODELS = ["ollama:gemma3", "ollama:qwen3", "ollama:deepseek-r1", "gemini:gemini-2.0-flash","gemini:gemini-2.5-flash-preview-05-20"];
+const MODELS = ["ollama:qwen3", "ollama:gemma3",  "ollama:llama3.1", "gemini:gemini-2.0-flash","gemini:gemini-2.5-flash-preview-05-20"];
 const DEBUG_MODE = true;
 
 function createTagFilteringStreamHandler({

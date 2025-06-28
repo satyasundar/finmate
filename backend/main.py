@@ -5,6 +5,9 @@ import asyncio
 from langchain_ollama import ChatOllama
 
 from graph import build_graph
+from logger import setup_logger
+
+logger = setup_logger()
 
 # Use Ollama model
 # llm = ChatOllama(model="qwen3", temperature=0.7, stream=True)
@@ -63,6 +66,7 @@ async def chat(request: ChatRequest):
 
 @app.post("/chat")
 async def stream_chat(request: ChatRequest):
+    logger.info(f"\n{'=' * 60} START RUN {'=' * 60}")
     state = {"messages": [{"role": "user", "content": request.user_message}]}
     graph = build_graph(request.model)
     final_state = await asyncio.to_thread(graph.invoke, state)

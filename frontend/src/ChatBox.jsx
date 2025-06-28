@@ -36,7 +36,7 @@ export default function ChatBox({ messages, loading }) {
   };
 
   useEffect(scrollToBottom, [messages]);
-
+  
   return (
     <div className="chat-box" ref={chatRef}>
         {
