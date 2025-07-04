@@ -9,6 +9,8 @@ import pikepdf
 import pdfplumber
 import json
 import re
+from datetime import datetime
+from duckdb_tools import store_transactions_to_duckdb
 
 from logger import setup_logger
 logger = setup_logger()
@@ -112,7 +114,7 @@ def get_gmail_service():
 
 def search_gmail_with_pdfs(query: str):
     logger.info(f"Entering search_gmail_with_pdfs...")
-    query = "from:(estatement@icicibank.com) " + query
+    query = "from:(estatement@icicibank.com)label:inbox " + query
     service = get_gmail_service()
     logger.info(f"Search Query : {query} ")
     results = service.users().messages().list(userId="me", q=query).execute()
@@ -293,12 +295,13 @@ def parse_icici_statement(path):
                     i += 1
                     continue
                 i += 1
-
-    return transactions
+    for row in transactions:
+        row['date'] = datetime.strptime(row['date'], '%d-%m-%Y').date()
+    return store_transactions_to_duckdb(transactions,"finance.db")
 
 
 
 if __name__ == "__main__":
     #extract_message_from_query("from:(estatement@icicibank.com) bank statement")
-    search_gmail_with_pdfs("bank statement")
+    search_gmail_with_pdfs("May 2025 bank statement")
   

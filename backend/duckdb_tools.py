@@ -12,7 +12,7 @@ def init_duckdb():
     con = duckdb.connect(DB_PATH)
     con.execute("""
         CREATE TABLE IF NOT EXISTS transactions (
-                    date VARCHAR,
+                    date DATE,
                     description VARCHAR,
                     amount DOUBLE,
                     balance DOUBLE,
@@ -23,7 +23,7 @@ def init_duckdb():
             """)
     con.close()
 
-@tool
+
 def store_transactions_to_duckdb(transactions: list, db_path: str = DB_PATH) -> str:
     """
     Stores parsed transaction data into DuckDB, avoiding duplicate inserts.
@@ -38,7 +38,7 @@ def store_transactions_to_duckdb(transactions: list, db_path: str = DB_PATH) -> 
         return "Parsed transaction Dataframe is empty"
     
     con = duckdb.connect(db_path)
-    init_duckdb()
+    #init_duckdb()
 
     expected_cols = ["date", "description", "amount", "balance", "mode", "type", "receiver"]
     for col in expected_cols:
@@ -60,21 +60,45 @@ def store_transactions_to_duckdb(transactions: list, db_path: str = DB_PATH) -> 
     
     con.close()
 
-    return f"Inserted {inserted_count} new transactions out of {before}."
+    return f"Inserted {inserted_count} new transactions out of {before} into DuckDB database. Check the database now."
 
 
 @tool
-def query_duckdb_tool(query: str, db_path: str = DB_PATH) -> str:
-    """Runs a SQL query against the DuckDB database and returns results."""
+def query_duckdb_tool(query: str) -> str:
+    """
+    Runs a SQL query against the database and returns results. Transactions table holds all the transactions. 
+    There are 2 types of transactions in the table, "DEBIT" type and "CREDIT" type.
 
-    logger.info("Entering queey_duckdb_tool() ...")
-    con = duckdb.connect(db_path)
+    Table Details Provided with description of each column:
+        Database Name : FINANCE
+        Table Name  : TRANSACTIONS
+        Table Schema : 
+            transactions (
+                    date DATE, [date loaded in yyyy-mm-dd format ]
+                    description VARCHAR, [Description of transaction in string]
+                    amount DOUBLE, [amount either credit or debit]
+                    balance DOUBLE, [account balance after each transaction]
+                    mode VARCHAR, [mode specifies the mode of transactions like UPI, NET BANKING, MOBILE BANKING etc]
+                    type VARCHAR, [type specifies "DEBIT" or "CREDIT" type of transaction]
+                    receiver VARCHAR [receiver tells the recepient name mentioned in the transaction description]
+                )
+
+    """
+
+    logger.info("Entering query_duckdb_tool() ...")
+    con = duckdb.connect(DB_PATH, read_only=True)
     try:
         results_df = con.execute(query).fetchdf()
-        if results_df.emppty:
+        if results_df.empty:
             return "No data found."
         return results_df.to_markdown(index=False)
     except Exception as e:
         return f"Error running query: {e}"
     finally:
         con.close()
+
+
+if __name__ == "__main__":
+    query = """SELECT SUM(amount) as total_spending FROM TRANSACTIONS WHERE date LIKE '%05-2025'"""
+    result = query_duckdb_tool(query)
+    print(result)

@@ -12,6 +12,16 @@ def add(a: int, b: int) -> int:
     return a + b
 
 @tool
+def subtract(a: int, b: int) -> int:
+    """Subtract 2 integers a and b and retruns result
+    
+    Args:
+        a: first int
+        b: second int
+    """
+    return a - b
+
+@tool
 def multiply(a: int, b: int) -> int:
     """Multiply 2 numbers a and b
     
@@ -22,9 +32,20 @@ def multiply(a: int, b: int) -> int:
     return a * b
 
 @tool
+def devide(a: int, b: int) -> int:
+    """Devide 2 numbers a and b
+    
+    Args:
+        a: first integer
+        b: second integer
+    """
+
+    return a / b
+
+@tool
 def fetch_gmail_pdfs(query: str) -> str:
     """
-    Searches Gmail for emails matching a query and fetches any attached PDFs. Return the location of downloaded files.
+    Search Gmail for emails with bank statements and fetch any attached PDFs. Return the locations of downloaded files.
     """
     try:
         print("Entering fetch_gmail_pdfs ...")
@@ -49,7 +70,8 @@ def decrypt_pdf_tool(path: str, bank: str = "ICICI") -> str:
         return f"Failed to decrypt PDF with known password at {path}"
 
 @tool
-def extract_transactions_tool(path: str) -> list:
-    """Parses as ICICI Bank PDF statement and returns a list of transactions"""
+def extract_and_store_transactions_tool(path: str) -> list:
+    """Takes the location of decrypted PDFs and parses them for retrieving the transactions. 
+    Finally store the list of transactions into DuckDB database."""
 
     return parse_icici_statement(path)

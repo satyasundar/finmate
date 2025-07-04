@@ -6,16 +6,34 @@ from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 from langchain_ollama import ChatOllama
 from langchain_google_genai import ChatGoogleGenerativeAI
-from tools import fetch_gmail_pdfs, decrypt_pdf_tool, extract_transactions_tool
-from duckdb_tools import store_transactions_to_duckdb, query_duckdb_tool
+from tools import add, subtract, multiply, devide
+from tools import fetch_gmail_pdfs, decrypt_pdf_tool, extract_and_store_transactions_tool
+from duckdb_tools import query_duckdb_tool
 
 from langgraph.prebuilt import ToolNode
 from langgraph.prebuilt import tools_condition
 import pprint
 from pprint import pformat
 from logger import setup_logger
+from datetime import datetime
 
 logger = setup_logger()
+today = datetime.today()
+
+system_msg = f"""
+You are a financial assistant. Today's date is {today.strftime('%Y-%m-%d')}. This date is in yyyy-mm-dd format. You can use this to reason time-based queries.
+You can do following to answer queries.
+- From user input message derive the query terms to find the relevant data.
+- Relevant data may be there in DuckDB database. Check first.
+- If it is not there in database, pull it from Gmail.
+- Fetch bank statements from Gmail and download the attahment
+- Extract and store transactions in database
+Always create a plan and follow through, using tools as needed.
+"""
+
+# system_msg = f"""
+# You are a helpful math assistant. You can answer queries about math.
+# """
 
 def get_llm(model: str):
     if model.startswith("ollama:"):
@@ -34,10 +52,10 @@ def build_graph(model: str):
     llm = get_llm(model)
     logger.info(f"Selected Model: {llm}")
     tools = [
+        add, subtract, multiply, devide,
         fetch_gmail_pdfs,
         decrypt_pdf_tool,
-        extract_transactions_tool,
-        store_transactions_to_duckdb,
+        extract_and_store_transactions_tool,
         query_duckdb_tool
         ]
     llm_with_tools = llm.bind_tools(tools)
@@ -53,15 +71,15 @@ def build_graph(model: str):
     # define chatbot node with tool calls
     def chatbot(state: State):
         
-        logger.info(f"Entering chatbot ...")
+        logger.info(f"****** Entering chatbot ...\n")
 
-        messages = [SystemMessage(content="You are a helpful assistant tasked with answering all kind of user queries.")]
+        messages = [SystemMessage(content= system_msg)]
         messages += state["messages"]
-        logger.info(f"\n{pformat(messages)}\n")
-
+        logger.info(f"Input Message Starts {'-' * 60} \n{pformat(messages)}\n Input Message End {'-' * 60}")
+        #logger.info([msg.content for msg in messages])
         result = llm_with_tools.invoke(messages)
         #result = llm.invoke(messages)
-        logger.info(f"\n{pformat(result)}\n")
+        logger.info(f"AI Response Starts here {'-' * 60 } \n{pformat(result)}\n {'-' * 60}")
 
         reasoning = ""
 
@@ -84,3 +102,6 @@ def build_graph(model: str):
     builder.add_edge("tools", "chatbot")
 
     return builder.compile()
+
+if __name__ == "__main__":
+    graph = build_graph("ollama:qwen3")
