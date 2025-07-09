@@ -40,7 +40,7 @@ def store_transactions_to_duckdb(transactions: list, db_path: str = DB_PATH) -> 
     con = duckdb.connect(db_path)
     #init_duckdb()
 
-    expected_cols = ["date", "description", "amount", "balance", "mode", "type", "receiver"]
+    expected_cols = ["date", "description", "amount", "balance", "mode", "type", "receiver", "bank", "account_no"]
     for col in expected_cols:
         if col not in df.columns:
             df[col] = None
@@ -99,6 +99,6 @@ def query_duckdb_tool(query: str) -> str:
 
 
 if __name__ == "__main__":
-    query = """SELECT SUM(amount) as total_spending FROM TRANSACTIONS WHERE date LIKE '%05-2025'"""
+    query = """SELECT * FROM TRANSACTIONS"""
     result = query_duckdb_tool(query)
     print(result)

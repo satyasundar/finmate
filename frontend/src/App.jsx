@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import ChatBox from "./ChatBox";
 import "./App.css";
 
-const MODELS = ["ollama:qwen3", "ollama:gemma3",  "ollama:llama3.1", "gemini:gemini-2.0-flash","gemini:gemini-2.5-flash-preview-05-20"];
+const MODELS = ["ollama:llama3.1", "ollama:qwen3", "ollama:gemma3", "gemini:gemini-2.0-flash","gemini:gemini-2.5-flash-preview-05-20"];
 const DEBUG_MODE = true;
 
 function createTagFilteringStreamHandler({
@@ -69,16 +69,30 @@ function createTagFilteringStreamHandler({
   };
 }
 
+function mergeValidateQuery(oldQuery, newQuery) {
+  if (!oldQuery) return newQuery;
+  if (!newQuery) return oldQuery;
+  const merged = {...oldQuery};
+  for (const key of Object.keys(newQuery)) {
+    if (newQuery[key] !== null && newQuery[key] !== "" && newQuery[key] !== undefined) {
+      merged[key] = newQuery[key];
+    }
+  }
+  return merged;
+}
+
 function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState(MODELS[0]);
+  const [validatedQuery, setValidatedQuery] = useState(null);
 
   const handleSend = async (messageToSend = input) => {
     if (!messageToSend.trim()) return;
 
     const userMsg = { role: "user", content: messageToSend };
+    // Add user message to local state
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
@@ -86,39 +100,74 @@ function App() {
     let aiMsg = { role: "ai", content: "", showDots: true };
     setMessages((prev) => [...prev, aiMsg]);
 
-    const res = await fetch("http://localhost:8000/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_message: messageToSend,
-        model: selectedModel,
-      }),
-    });
+    // Prepare messages to send (exclude streaming/placeholder ai message)
+    const messagesToSend = [...messages, userMsg].filter(
+      (msg) => msg.role === "user" || msg.role === "ai"
+    ).map(({ role, content }) => ({ role, content }));
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder("utf-8");
+    console.log(`Details Sent from frontend: 
+      ${ JSON.stringify(messagesToSend) },
+      ${selectedModel}, 
+      ${validatedQuery}`);
 
-   
+    try {
+      const res = await fetch("http://localhost:8000/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: messagesToSend,
+          model: selectedModel,
+          validated_query: validatedQuery
+        }),
+      });
 
-    const filterStream = createTagFilteringStreamHandler({
-      tagsToFilter: ["think"],
-      enabled: !DEBUG_MODE,
-      onData: (filteredChunk) => {
-        if (filteredChunk.trim()) {
-          aiMsg.showDots = false;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+     
+  
+      const filterStream = createTagFilteringStreamHandler({
+        tagsToFilter: ["think"],
+        enabled: !DEBUG_MODE,
+        onData: (filteredChunk) => {
+          if (filteredChunk.trim()) {
+            aiMsg.showDots = false;
+          }
+          aiMsg.content += filteredChunk;
+          setMessages((prev) => [...prev.slice(0, -1), { ...aiMsg }]);
+        },
+      });
+  
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+  
+        //intercept for validated_query
+        if (chunk.startsWith("<END::validated_query:")) {
+          console.log("Raw chunk for validated query: ", chunk);
+          //const json = chunk.slice(24, -1);
+          const jsonStart = chunk.indexOf("{");
+          const jsonEnd = chunk.lastIndexOf("}") + 1;
+          const json = chunk.slice(jsonStart, jsonEnd);
+          try {
+            const parsed = JSON.parse(json)
+            //setValidatedQuery(parsed);
+            setValidatedQuery(prev => mergeValidateQuery(prev, parsed));
+          } catch (e) {
+            console.error("Failed to parse validated_query", e);
+          }
+          
+          continue;
         }
-        aiMsg.content += filteredChunk;
-        setMessages((prev) => [...prev.slice(0, -1), { ...aiMsg }]);
-      },
-    });
+  
+        filterStream(chunk);
+      }
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      filterStream(chunk);
+    } catch (err) {
+      console.error("Error streaming response", err)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false);
   };
 
   return (

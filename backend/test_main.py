@@ -7,8 +7,9 @@ client = TestClient(app)
 def test_stram_chat():
     # Prepare a simple chat payload matching CHatRequest Schema
     payload = {
-        "user_message": "fetch bank statement from May 2025",
-        "model": "ollama:qwen3"
+        "user_message": "What is the total spending in the month of May 2025",
+        #"model": "ollama:qwen3"
+        "model": "ollama:llama3.1"
         #"model": "gemini:gemini-2.0-flash"
     }
 
