@@ -11,6 +11,6 @@ def setup_logger():
         ]
     )
 
-    return logging.getLogger(__name__)
+#     return logging.getLogger(__name__)
 
-logger = setup_logger()
+# logger = setup_logger()

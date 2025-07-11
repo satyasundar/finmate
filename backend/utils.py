@@ -12,8 +12,10 @@ import re
 from datetime import datetime
 from duckdb_tools import store_transactions_to_duckdb
 
-from logger import setup_logger
-logger = setup_logger()
+# from logger import setup_logger
+# logger = setup_logger()
+import logging
+logger = logging.getLogger(__name__)
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
@@ -114,7 +116,7 @@ def get_gmail_service():
 
 def search_gmail_with_pdfs(query: str):
     logger.info(f"Entering search_gmail_with_pdfs...")
-    query = "from:(estatement@icicibank.com)label:inbox " + query
+    query = "from:(estatement@icicibank.com) label:inbox " + query
     service = get_gmail_service()
     logger.info(f"Search Query : {query} ")
     results = service.users().messages().list(userId="me", q=query).execute()
@@ -156,7 +158,7 @@ def decrypt_with_pikepdf(input_path, output_path, password):
     except pikepdf._qpdf.PasswordError:
         raise ValueError("Incorrect password or unsupported encryption")
     
-def parse_icici_statement(path):
+def parse_icici_statement(path, bank, account_no):
     logger.info(f"Entering parse_icici__statement() ...")
     transactions = []
     last_bal = 0
@@ -169,7 +171,10 @@ def parse_icici_statement(path):
                 continue
             lines = text.split("\n")
             logger.info(f"Extracted {len(lines)} lines from page {page_num + 1}")
-            
+            #print(f"number of lines: {len(lines)} : \n {lines}") 
+            # for line in lines:
+            #     print(line)
+            # exit(0)
             i = 0
             while i < len(lines):
                 line = lines[i].strip()
@@ -187,7 +192,10 @@ def parse_icici_statement(path):
                         "amount": 0.0,
                         "balance": float(bf_match.group(2).replace(',', '')),
                         "mode": "B/F",
-                        "type": "BALANCE"
+                        "type": "BALANCE",
+                        "receiver":"",
+                        "bank": bank,
+                        "account_no": account_no
                     })
                     last_bal = float(bf_match.group(2).replace(',', ''))
                     i += 1
@@ -210,21 +218,41 @@ def parse_icici_statement(path):
                     next_desc = lines[i + 1].strip() if i + 1 < len(lines) else ""
 
                     full_description = " ".join([prev_desc, middle_desc, next_desc]).strip()
-
-                    receiver = full_description.split("/")[1]
-                    mode = full_description.split("/")[0]
+                    
+                    #print(f"Full Description: {full_description}")
+                    # if "/" in full_description and len(full_description.split("/")) > 1:
+                    #     receiver = full_description.split("/")[1]
+                    #     mode = full_description.split("/")[0]
+                    # else:
+                    parts = full_description.split("/")
+                    if len(parts) > 1:
+                        mode = parts[0].strip()
+                        receiver = parts[1].strip()
+                    else:
+                        if "Int.Pd" in full_description or "interest" in full_description.lower():
+                            mode = "Interest Credit"
+                            receiver = bank
+                        else:
+                            mode = "Unknown"
+                            receiver = "Unknown"
+                       
+                        
+                    # receiver = full_description.split("/")[1]
+                    # mode = full_description.split("/")[0]
 
                     # # Heuristic: treat as UPI if 'UPI' is present in the description
                     # mode = "UPI" if "UPI" in full_description.upper() else "SIP" if "ACH" in full_description.upper() else "NEFT" if "NEFT" in full_description.upper() else "UNKNOWN"
 
                     transactions.append({
                         "date": date,
-                        "type": "DEBIT" if last_bal > balance else "CREDIT",
+                        "description": full_description,
                         "amount": amount,
-                        "receiver": receiver,
-                        "mode": mode,
                         "balance": balance,
-                        "description": full_description
+                        "mode": mode,
+                        "type": "DEBIT" if last_bal > balance else "CREDIT",
+                        "receiver": receiver,
+                        "bank": bank,
+                        "account_no": account_no    
                     })
                     last_bal = balance
                     i += 2  # Skip the next line which we consumed
@@ -245,8 +273,12 @@ def parse_icici_statement(path):
                         "date": date,
                         "description": description,
                         "amount": amount,
+                        "balance": balance,
                         "mode": "NET BANKING",
-                        "type": "DEBIT" if last_bal > balance else "CREDIT"
+                        "type": "DEBIT" if last_bal > balance else "CREDIT",
+                        "receiver": "",
+                        "bank": bank,
+                        "account_no": account_no
                     })
                     last_bal = balance
                     i += 1
@@ -266,9 +298,12 @@ def parse_icici_statement(path):
                         "date": date,
                         "description": description,
                         "amount": amount,
+                        "balance": balance,
                         "mode": "MOBILE BANKING",
                         "type": "DEBIT" if last_bal > balance else "CREDIT",
-                        "balance": balance
+                        "receiver": "",
+                        "bank": bank,
+                        "account_no": account_no
                     })
                     last_bal = balance
                     i += 1
@@ -287,9 +322,12 @@ def parse_icici_statement(path):
                         "date": date,
                         "description": description,
                         "amount": amount,
+                        "balance": balance,
                         "mode": "ICICI DIRECT",
                         "type": "DEBIT" if last_bal > balance else "CREDIT",
-                        "balance": balance
+                        "receiver": "",
+                        "bank": bank,
+                        "account_no": account_no
                     })
                     last_bal = balance
                     i += 1
@@ -297,11 +335,14 @@ def parse_icici_statement(path):
                 i += 1
     for row in transactions:
         row['date'] = datetime.strptime(row['date'], '%d-%m-%Y').date()
+        # row['bank'] = bank
+        # row['account_no'] = account_no
     return store_transactions_to_duckdb(transactions,"finance.db")
 
 
 
 if __name__ == "__main__":
     #extract_message_from_query("from:(estatement@icicibank.com) bank statement")
-    search_gmail_with_pdfs("May 2025 bank statement")
+    #search_gmail_with_pdfs("May 2025 bank statement")
+    parse_icici_statement("downloads/Statement_2025MTH06_787512432_decrypted.pdf", "ICICI", "XXXXXXXX9469");
   

@@ -15,12 +15,14 @@ from langgraph.prebuilt import ToolNode
 from langgraph.prebuilt import tools_condition
 import pprint
 from pprint import pformat
-from logger import setup_logger
+#from logger import setup_logger
 from datetime import datetime
 from calendar import monthrange
 import json
+import logging
 
-logger = setup_logger()
+#logger = setup_logger()
+logger = logging.getLogger(__name__)
 today = datetime.today()
 
 system_msg = f"""
@@ -122,14 +124,14 @@ def build_graph(model: str):
             "</plan>"
         )
 
-        gmail_hint = "subject:ICICI Bank Statement from "
+        gmail_hint = "subject:ICICI Bank Statement from dd-mm-yyyy to dd-mm-yyyy"
         
         existing_vq = state.get("validated_query")
         merged_query = {
             **(existing_vq if existing_vq else {}),
-            "query_hint": gmail_hint
+            #"query_hint": gmail_hint
         }
-        logger.info(f"Before returning from Planning Node...\n Merged Query:: {merged_query}")
+        logger.info(f"Before returning from Planning Node...\n Existing VQ:: {merged_query}")
         return {
             "plan": plan,
             "validated_query": QueryInfo(**merged_query),
@@ -139,7 +141,7 @@ def build_graph(model: str):
 
     def validate_query_node(state):
         logger.info(f"2.Validation Node entered...")
-        logger.info(f"Current state at the beginning of Validation Node \n{state}\n")
+        #logger.info(f"Current state at the beginning of Validation Node \n{state}\n")
         #user_message = state["messages"][-1]
         user_message = next(msg for msg in reversed(state["messages"]) if isinstance(msg, HumanMessage))
         #logger.info(f"User Msg: {user_message.content}")
@@ -164,20 +166,20 @@ def build_graph(model: str):
             final_query = QueryInfo(**merged)
             logger.info(f"Merged final_query: {final_query}")
 
-            if final_query.month and final_query.year and not final_query.date_range:
-                try:
-                    months = {m.lower(): i for i, m in enumerate([
-                        "", "January", "February", "March", "April", "May", "June",
-                        "July", "August", "September", "October", "November", "December"
-                    ])}
-                    month_num = months[final_query.month.strip().lower()]
-                    year = int(final_query.year)
-                    last_day = monthrange(year, month_num)[1]
-                    start = f"01-{month_num:02d}-{year}"
-                    end = f"{last_day:02d}-{month_num:02d}-{year}"
-                    final_query.date_range = f"{start} to {end}"
-                except Exception as e:
-                    logger.warning(f"Failed to infer date_range: {e}")
+            # if final_query.month and final_query.year and not final_query.date_range:
+            #     try:
+            #         months = {m.lower(): i for i, m in enumerate([
+            #             "", "January", "February", "March", "April", "May", "June",
+            #             "July", "August", "September", "October", "November", "December"
+            #         ])}
+            #         month_num = months[final_query.month.strip().lower()]
+            #         year = int(final_query.year)
+            #         last_day = monthrange(year, month_num)[1]
+            #         start = f"01-{month_num:02d}-{year}"
+            #         end = f"{last_day:02d}-{month_num:02d}-{year}"
+            #         final_query.date_range = f"{start} to {end}"
+            #     except Exception as e:
+            #         logger.warning(f"Failed to infer date_range: {e}")
 
             if not final_query.bank or not final_query.month or not final_query.account_no:
                 logger.warning("Missing required fields: bank or month or account_no")
@@ -234,7 +236,7 @@ def build_graph(model: str):
 
     def routing_logic(state):
         logger.info("Start routing logic")
-        logger.info(f"Current state at Routing Logic \n{state}\n")
+        #logger.info(f"Current state at Routing Logic \n{state}\n")
         if state.get("__end__", False):
             return END
         q = state["validated_query"]
@@ -312,16 +314,19 @@ def build_graph(model: str):
         logger.info(f"****** Entering chatbot ...\n")
 
         messages = [SystemMessage(content=system_msg)]
-        #messages = [SystemMessage(content=system_msg), SystemMessage(content=tool_descriptions)]
-        #messages += state["messages"]
-
-        # user_query = next((msg for msg in state["messages"] if isinstance(msg, HumanMessage)), None)
-        # if user_query:
-        #     messages.append(user_query)
+        messages += state["messages"]
+   
         refined_query = state["validated_query"]
         if refined_query:
-            user_msg = f"What is my total spending for {refined_query.bank} account {refined_query.account_no} in {refined_query.month} {refined_query.year}?"
-            messages.append(HumanMessage(content=user_msg))
+            reformulated = (
+                f"User intends to ask: "
+                f"{refined_query.intent} for {refined_query.bank} account {refined_query.account_no} "
+                f"in {refined_query.month} {refined_query.year}"
+            )
+            messages.append(SystemMessage(content=reformulated))
+        # if refined_query:
+        #     user_msg = f"What is my total spending for {refined_query.bank} account {refined_query.account_no} in {refined_query.month} {refined_query.year}?"
+        #     messages.append(HumanMessage(content=user_msg))
 
         logger.info(f"Input Message Starts {'-' * 60} \n{pformat(messages)}\n Input Message End {'-' * 60}")
         #logger.info([msg.content for msg in messages])
@@ -371,4 +376,5 @@ def build_graph(model: str):
     return builder.compile()
 
 if __name__ == "__main__":
-    graph = build_graph("ollama:qwen3")
+    #graph = build_graph("ollama:qwen3")
+    logger.info("logging test in graph.py")

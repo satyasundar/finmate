@@ -7,11 +7,13 @@ from langchain_ollama import ChatOllama
 
 from graph import build_graph
 from logger import setup_logger
+import logging
 import json
 from schemas import QueryInfo
 from pprint import pformat
 
-logger = setup_logger()
+setup_logger()
+logger = logging.getLogger(__name__)
 
 # Use Ollama model
 # llm = ChatOllama(model="qwen3", temperature=0.7, stream=True)
@@ -111,3 +113,6 @@ async def stream_chat(request: ChatRequest):
             yield f"<END::validated_query:{validated_query_json}>"
 
     return StreamingResponse(response_generator(), media_type="text/plain")
+
+if __name__=="__main__":
+    logger.info("logging test")

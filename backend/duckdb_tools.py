@@ -2,9 +2,11 @@ import duckdb
 import pandas as pd
 from langchain.tools import tool
 import os
-from logger import setup_logger
+#from logger import setup_logger
+import logging
 
-logger = setup_logger()
+# logger = setup_logger()
+logger = logging.getLogger(__name__)
 
 DB_PATH = "finance.db"
 
@@ -29,13 +31,15 @@ def store_transactions_to_duckdb(transactions: list, db_path: str = DB_PATH) -> 
     Stores parsed transaction data into DuckDB, avoiding duplicate inserts.
     A duplicate is considered as a record with the same date, amount, and description.
     """
-    logger.info(f"Entering store_transactions_to_duckdb() with {transactions} and {db_path} ")
+    logger.info(f"Entering store_transactions_to_duckdb() with {len(transactions)} transactions and {db_path} database ")
     if not transactions:
         return "No transactions to insert"
     
     df = pd.DataFrame(transactions)
     if df.empty:
         return "Parsed transaction Dataframe is empty"
+    
+    df["date"] = pd.to_datetime(df["date"])
     
     con = duckdb.connect(db_path)
     #init_duckdb()
@@ -80,7 +84,9 @@ def query_duckdb_tool(query: str) -> str:
                     balance DOUBLE, [account balance after each transaction]
                     mode VARCHAR, [mode specifies the mode of transactions like UPI, NET BANKING, MOBILE BANKING etc]
                     type VARCHAR, [type specifies "DEBIT" or "CREDIT" type of transaction]
-                    receiver VARCHAR [receiver tells the recepient name mentioned in the transaction description]
+                    receiver VARCHAR, [receiver tells the recepient name mentioned in the transaction description]
+                    bank VARCHAR, [This is bank name from user's query. like 'ICICI', 'HDFC' etc]
+                    account_no VARCHAR [This is the account number for which the user querying details]
                 )
 
     """

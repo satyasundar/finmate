@@ -9,3 +9,5 @@ frontend/node_modules
 .DS_Store
 backend/.DS_Store
 backend/finance
+backend/finance
+backend/finance.db

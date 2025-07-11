@@ -70,8 +70,9 @@ def decrypt_pdf_tool(path: str, bank: str = "ICICI") -> str:
         return f"Failed to decrypt PDF with known password at {path}"
 
 @tool
-def extract_and_store_transactions_tool(path: str) -> list:
+def extract_and_store_transactions_tool(path: str, bank: str, account_no: str) -> list:
     """Takes the location of decrypted PDFs and parses them for retrieving the transactions. 
+    It also takes the bank and account number from validated_query dictonary available.
     Finally store the list of transactions into DuckDB database."""
 
-    return parse_icici_statement(path)
+    return parse_icici_statement(path, bank, account_no)
