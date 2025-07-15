@@ -2,7 +2,16 @@ import React, { useState, useEffect, useRef } from "react";
 import ChatBox from "./ChatBox";
 import "./App.css";
 
-const MODELS = ["ollama:llama3.1", "ollama:qwen3", "ollama:gemma3", "gemini:gemini-2.0-flash","gemini:gemini-2.5-flash-preview-05-20"];
+const MODELS = [
+  //"ollama:llama3.1",
+  //"ollama:deepseek-r1",
+  //"ollama:llama3-groq-tool-use",
+  //"ollama:gemma3", 
+  //"ollama:phi4",
+  "gemini:gemini-2.0-flash",
+  "gemini:gemini-2.5-flash-preview-05-20",
+  "ollama:qwen3"
+];
 const DEBUG_MODE = true;
 
 function createTagFilteringStreamHandler({
@@ -173,7 +182,7 @@ function App() {
   return (
     <div className={`app-container ${messages.length === 0 ? "initial-view" : ""}`}>
       <header className="app-header">
-        <h2>Satya Nayak's Assistant</h2>
+        <h2>Satya's FinMate</h2>
         <div className="model-selector">
           <select
             value={selectedModel}

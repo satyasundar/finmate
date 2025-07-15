@@ -36,7 +36,8 @@ export default function ChatBox({ messages, loading }) {
   };
 
   useEffect(scrollToBottom, [messages]);
-  
+
+// Commenting for now to remove think block for performance issue
   return (
     <div className="chat-box" ref={chatRef}>
         {
@@ -85,5 +86,46 @@ export default function ChatBox({ messages, loading }) {
         )}
     </div>
   );
+
+// New code only to render clean content from AI
+// return (
+//     <div className="chat-box" ref={chatRef}>
+//         {
+//             messages.map((msg, i) => {
+//                 if (msg.role === "ai") {
+//                     const hasThink = /<think>.*?<\/think>/gs.test(msg.content);
+//                     const cleaned = msg.content.replace(/<think>.*?<\/think>/gs, "").trim();
+
+//                     // 🧹 If message only contains <think> block, skip rendering
+//                     if (hasThink && cleaned.length === 0) {
+//                         return null;
+//                     }
+
+//                     // ✅ Render only the non-<think> part
+//                     return (
+//                         <div key={i} className="message ai">
+//                             <ReactMarkDown>{cleaned}</ReactMarkDown>
+//                         </div>
+//                     );
+//                 }
+
+//                 // Render all user/system messages
+//                 return (
+//                     <div key={i} className={`message ${msg.role}`}>
+//                         <ReactMarkDown>{msg.content}</ReactMarkDown>
+//                     </div>
+//                 );
+//             })
+//         }
+
+//         {loading && messages[messages.length - 1]?.showDots && (
+//             <div className="message ai">
+//                 <LoadingDots />
+//             </div>
+//         )}
+//     </div>
+// );
+
+
 
 }

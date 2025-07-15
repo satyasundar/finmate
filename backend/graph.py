@@ -131,7 +131,7 @@ def build_graph(model: str):
             **(existing_vq if existing_vq else {}),
             #"query_hint": gmail_hint
         }
-        logger.info(f"Before returning from Planning Node...\n Existing VQ:: {merged_query}")
+        logger.info(f"Before returning from Planning Node...\n Merged Query:: {merged_query}")
         return {
             "plan": plan,
             "validated_query": QueryInfo(**merged_query),
@@ -219,14 +219,14 @@ def build_graph(model: str):
             logger.info(f"q from state: {q}")
             if not q.bank:
                 missing.append("bank")
-            if not q.month:
-                missing.append("month")
             if not q.account_no:
                 missing.append("account_number")
+            if not q.month:
+                missing.append("month")
         
         if not missing:
             logger.info(f"not coming here")
-            missing = ["bank", "month", "account_number"]
+            missing = ["bank", "account_number", "month"]
         
         question = " To proceed, could you specify your " + " and ".join(missing) + "?"
         return {
