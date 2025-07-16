@@ -3,7 +3,7 @@ backend/password_config.json
 backend/token.json
 backend/credentials.json
 backend/*.db
-backend/backend.log
+#backend/backend.log
 backend/downloads/
 frontend/node_modules
 .DS_Store

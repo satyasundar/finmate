@@ -4,6 +4,10 @@ FinMate is a full-stack AI-powered financial assistant that helps users interact
 
 ---
 
+## Logs
+- To see the logs for existing run you can see the file **[backend.log](./backend/backend.log)**
+
+
 ## Features
 - **Conversational AI:** Chat with an AI assistant about your finances.
 - **Multi-Model Support:** Switch between Gemini and Ollama LLMs.
